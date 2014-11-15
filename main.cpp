@@ -38,9 +38,33 @@
 int main() {
 	// init
 	
+    SETBIT(TCCR0A, COM0A1);
+    SETBIT(TCCR0A, WGM01);
+    SETBIT(TCCR0A, WGM00);
+    SETBIT(TCCR0B, CS00);
+    
+    SETBIT(DDRB, PB2);
 	
 	// enable interrupts
 	//sei();
 
-	for (;;);
+    uint16_t value = 0;
+
+
+	for (;;) {
+        value = 0;
+        while(!BITSET(PINA, PA0));
+        while(BITSET(PINA, PA0)) {
+            value++;
+        }
+        if (value < 200) {
+            CLEARBIT(DDRB, PB2);
+            CLEARBIT(PORTB, PB2);
+            value = 0;
+        } else {
+            SETBIT(DDRB, PB2);
+            value -= 200;
+        }
+        OCR0A = value;
+    }
 }

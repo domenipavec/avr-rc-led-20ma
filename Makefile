@@ -66,7 +66,7 @@
 # Name of target controller 
 # (e.g. 'at90s8515', see the available avr-gcc mmcu 
 # options for possible values)
-MCU=atmega32
+MCU=attiny84
 
 # id to use with programmer
 # default: PROGRAMMER_MCU=$(MCU)
@@ -74,7 +74,7 @@ MCU=atmega32
 # accept the same MCU name as avr-gcc (for example
 # for ATmega8s, avr-gcc expects 'atmega8' and 
 # avrdude requires 'm8')
-PROGRAMMER_MCU=m32
+PROGRAMMER_MCU=t84
 
 # Name of our project
 # (use a single word, e.g. 'myproject')
@@ -82,10 +82,10 @@ PROJECTNAME=avr
 
 # Avrdude arguments for setting fuses
 # (I use http://www.engbedded.com/cgi-bin/fcx.cgi)
-FUSE_SETTINGS=-U lfuse:w:0xe4:m -U hfuse:w:0x99:m
+FUSE_SETTINGS=-U lfuse:w:0x62:m -U hfuse:w:0xdf:m -U efuse:w:0xff:m
 
 # MCU clock speed
-F_CPU = 8000000UL
+F_CPU = 1000000UL
 
 # Source files
 # List C/C++/Assembly source files:
