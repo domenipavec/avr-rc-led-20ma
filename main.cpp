@@ -34,6 +34,9 @@
 #include <stdint.h>
 
 #include "bitop.h"
+#include "exponential.h"
+
+using namespace avr_cpp_lib;
 
 int main() {
 	// init
@@ -65,6 +68,6 @@ int main() {
             SETBIT(DDRB, PB2);
             value -= 200;
         }
-        OCR0A = value;
+        OCR0A = exponential(value);
     }
 }
