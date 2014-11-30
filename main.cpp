@@ -48,14 +48,18 @@ uint16_t EEMEM signal_max_ee[3];
 
 volatile uint16_t signal_min[3];
 volatile uint16_t signal_max[3];
+volatile uint16_t signal[3];
+volatile bool signal_update[3] = {false, false, false};
 volatile uint8_t signal_divider[3];
 
 volatile uint16_t signal_start[3];
 volatile uint8_t signal_value[3];
 
-bool signal_calibrated = false;
+bool signal_calibrated[3] = {false,false,false};
 
 volatile uint16_t timer[7];
+
+static const uint8_t SIGNAL_STEP = 16;
 
 void set_brightness(uint8_t led, uint8_t b) {
     b = exponential(b);
@@ -69,7 +73,7 @@ void set_brightness(uint8_t led, uint8_t b) {
 }
 
 void update_divider(uint8_t i) {
-    signal_divider[i] = (signal_max[i] - signal_min[i])>>8;
+    signal_divider[i] = (signal_max[i] - signal_min[i] - 2*SIGNAL_STEP)>>8;
     if (signal_divider[i] < 1) {
         signal_divider[i] = 1;
     }
@@ -126,47 +130,15 @@ ISR(PCINT1_vect) {
             if (BITSET(curr, i)) {
                 signal_start[i] = t;
             } else {
-                uint16_t signal = t - signal_start[i];
+                signal[i] = t - signal_start[i];
                 if (t < signal_start[i]) {
-                    signal -= 15536;
+                    signal[i] -= 15536;
                 }
-                if (BITCLEAR(PINA, PA7)) {
-                    if (!signal_calibrated) {
-                        for (uint8_t j = 0; j < 3; j++) {
-                            signal_min[j] = 65535;
-                            signal_max[j] = 0;
-                            signal_divider[j] = 1;
-                        }
-                        eeprom_write_block((void*)signal_min, (void*)signal_min_ee, 6);
-                        eeprom_write_block((void*)signal_max, (void*)signal_max_ee, 6);
-                        signal_calibrated = true;
-                    }
-                    if (signal < signal_min[i]) {
-                        while (signal < signal_min[i]) {
-                            signal_min[i] -= 8;
-                        }
-                        eeprom_write_word(&signal_min_ee[i], signal_min[i]);
-                        update_divider(i);
-                    } else if (signal > signal_max[i]) {
-                        while (signal > signal_max[i]) {
-                            signal_max[i] += 8;
-                        }
-                        eeprom_write_word(&signal_max_ee[i], signal_max[i]);
-                        update_divider(i);
-                    }
-                }
-                uint16_t value = (signal - signal_min[i])/signal_divider[i];
-                if (signal < signal_min[i]) {
-                    value = 0;
-                }
-                if (value > 255) {
-                    value = 255;
-                }
-                signal_value[i] = value;
+                signal_update[i] = true;
             }
         }
     }
-    
+
     last = curr;
 }
 
@@ -178,36 +150,45 @@ void update_brightness(uint8_t led) {
     }
 }
 
+uint16_t get_time(uint8_t led) {
+    if (leds_time_mode[led] == CONSTANT) {
+        return leds_time[led];
+    } else {
+        return 16+signal_value[leds_time_mode[led]]*4;
+    }
+}
+
 void update_led(uint8_t led) {
+    uint16_t lt = get_time(led);
     switch (leds_mode[led]) {
         case 0:
             update_brightness(led);
             break;
         case 1:
-            if (timer[led] < leds_time[led]) {
+            if (timer[led] < lt) {
                 set_brightness(led, 0);
-            } else if (timer[led] < 2*leds_time[led]) {
+            } else if (timer[led] < 2*lt) {
                 update_brightness(led);
             } else {
-                timer[led] -= 2*leds_time[led];
+                timer[led] -= 2*lt;
             }
             break;
         case 2:
-            if (timer[led] < leds_time[led]) {
+            if (timer[led] < lt) {
                 update_brightness(led);
-            } else if (timer[led] < 2*leds_time[led]) {
+            } else if (timer[led] < 2*lt) {
                 set_brightness(led, 0);
             } else {
-                timer[led] -= 2*leds_time[led];
+                timer[led] -= 2*lt;
             }
             break;
         case 3:
             if (timer[led] < 16) {
                 update_brightness(led);
-            } else if (timer[led] < leds_time[led]) {
+            } else if (timer[led] < lt) {
                 set_brightness(led, 0);
             } else {
-                timer[led] -= leds_time[led];
+                timer[led] -= lt;
             }
             break;
     }
@@ -221,6 +202,7 @@ int main() {
     eeprom_read_block((void*)&leds_brightness_mode, (const void *)&leds_brightness_mode_ee, 7);
     eeprom_read_block((void*)&leds_brightness, (const void *)&leds_brightness_ee, 7);
     eeprom_read_block((void*)&leds_mode, (const void *)&leds_mode_ee, 7);
+    eeprom_read_block((void*)&leds_time_mode, (const void *)&leds_time_mode_ee, 7);
     eeprom_read_block((void*)&leds_time, (const void *)&leds_time_ee, 14);
     
     eeprom_read_block((void*)&signal_min, (const void *)&signal_min_ee, 6);
@@ -267,6 +249,46 @@ int main() {
 	for (;;) {
         for (uint8_t i = 0; i < 7; i++) {
             update_led(i);
+        }
+        for (uint8_t i = 0; i < 3; i++) {
+            if (signal_update[i]) {
+//                 if (signal[i] < 1000) {
+//                     continue;
+//                 }
+                if (BITCLEAR(PINA, PA7)) {
+                    if (!signal_calibrated[i]) {
+                        signal_min[i] = signal[i];
+                        signal_max[i] = signal[i];
+                        signal_divider[i] = 1;
+                        eeprom_write_block((void*)signal_min, (void*)signal_min_ee, 6);
+                        eeprom_write_block((void*)signal_max, (void*)signal_max_ee, 6);
+                        signal_calibrated[i] = true;
+                    }
+                    if (signal[i] < signal_min[i]) {
+                        while (signal[i] < signal_min[i]) {
+                            signal_min[i] -= SIGNAL_STEP;
+                        }
+                        eeprom_write_word(&signal_min_ee[i], signal_min[i]);
+                        update_divider(i);
+                    }
+                    if (signal[i] > signal_max[i]) {
+                        while (signal[i] > signal_max[i]) {
+                            signal_max[i] += SIGNAL_STEP;
+                        }
+                        eeprom_write_word(&signal_max_ee[i], signal_max[i]);
+                        update_divider(i);
+                    }
+                }
+                uint16_t value = (signal[i] - signal_min[i] + SIGNAL_STEP)/signal_divider[i];
+                if (signal[i] < signal_min[i]) {
+                    value = 0;
+                }
+                if (value > 255) {
+                    value = 255;
+                }
+                signal_value[i] = value;
+                signal_update[i] = false;
+            }
         }
     }
 }

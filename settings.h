@@ -32,11 +32,13 @@ static const uint8_t CONSTANT = 10;
 extern uint8_t EEMEM leds_brightness_mode_ee[7];
 extern uint8_t EEMEM leds_brightness_ee[7];
 extern uint8_t EEMEM leds_mode_ee[7];
+extern uint8_t EEMEM leds_time_mode_ee[7];
 extern uint16_t EEMEM leds_time_ee[7];
 
 extern uint8_t leds_brightness_mode[7];
 extern uint8_t leds_brightness[7];
 extern uint8_t leds_mode[7];
+extern uint8_t leds_time_mode[7];
 extern uint16_t leds_time[7];
 
 void menu_root();

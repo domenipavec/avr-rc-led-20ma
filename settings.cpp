@@ -40,11 +40,13 @@
 uint8_t EEMEM leds_brightness_mode_ee[7];
 uint8_t EEMEM leds_brightness_ee[7];
 uint8_t EEMEM leds_mode_ee[7];
+uint8_t EEMEM leds_time_mode_ee[7];
 uint16_t EEMEM leds_time_ee[7];
 
 uint8_t leds_brightness_mode[7];
 uint8_t leds_brightness[7];
 uint8_t leds_mode[7];
+uint8_t leds_time_mode[7];
 uint16_t leds_time[7];
 
 uint8_t menu_led() {
@@ -156,15 +158,24 @@ uint16_t menu_select_time(uint8_t led) {
 
 void menu_time(uint8_t led) {
     uint16_t time;
-    uint8_t mode = menu_N(led, 2);
-    if (mode == 0) {
-        time = menu_select_time(led);
-    } else if (mode == 1) {
-        time = leds_time[menu_led()];
+    uint8_t mode = menu_N(led, 3);
+    switch (mode) {
+        case 0:
+            time = menu_select_time(led);
+            leds_time_mode[led] = CONSTANT;
+            break;
+        case 1:
+            time = leds_time[menu_led()];
+            leds_time_mode[led] = CONSTANT;
+            break;
+        case 2:
+            leds_time_mode[led] = menu_N(led, 3);
+            break;
     }
     
     leds_time[led] = time;
     eeprom_write_word(&leds_time_ee[led], time);
+    eeprom_write_byte(&leds_time_mode_ee[led], leds_time_mode[led]);
 }
 
 void menu_root() {
