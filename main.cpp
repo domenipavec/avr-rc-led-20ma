@@ -84,42 +84,31 @@ void update_divider(uint8_t i) {
 }
 
 ISR(TIM0_COMPA_vect) {
-    static uint8_t mode = 0;
-    switch (mode) {
+    static uint8_t mode = 1;
+    PORTA = leds[mode];
+    mode++;
+    switch (mode-2) {
         case 0:
-            PORTA = leds[1];
             OCR0A = 3;
-            mode++;
             break;
         case 1:
-            PORTA = leds[2];
             OCR0A = 7;
-            mode++;
             break;
         case 2:
-            PORTA = leds[3];
             OCR0A = 15;
-            mode++;
             break;
         case 3:
-            PORTA = leds[4];
             OCR0A = 31;
-            mode++;
             break;
         case 4:
-            PORTA = leds[5];
             OCR0A = 63;
-            mode++;
             break;
         case 5:
-            PORTA = leds[6];
             OCR0A = 127;
-            mode++;
             break;
         case 6:
-            PORTA = leds[7];
             OCR0A = 1;
-            mode = 0;
+            mode = 1;
             break;
     }
 }
@@ -152,8 +141,8 @@ ISR(PCINT1_vect) {
                 if (BITCLEAR(PINA, PA7)) {
                     if (!signal_calibrated) {
                         for (uint8_t j = 0; j < 3; j++) {
-                            signal_min[j] = 9983;
-                            signal_max[j] = 10239;
+                            signal_min[j] = 65535;
+                            signal_max[j] = 0;
                             signal_divider[j] = 1;
                         }
                         eeprom_write_block((void*)signal_min, (void*)signal_min_ee, 6);
@@ -263,17 +252,21 @@ void menu_brightness(uint8_t led) {
     if (mode == 0) {
         uint8_t brightness = menu_select_brightness(led);
 
+        leds_brightness[led] = brightness;
+        leds_brightness_mode[led] = CONSTANT;
         eeprom_write_byte(&leds_brightness_ee[led], brightness);
         eeprom_write_byte(&leds_brightness_mode_ee[led], CONSTANT);
     } else {
         uint8_t channel = menu_N(led, 3);
         
+        leds_brightness_mode[led] = channel;
         eeprom_write_byte(&leds_brightness_mode_ee[led], channel);
     }
 }
 
 void menu_mode(uint8_t led) {
     uint8_t mode = menu_N(led, 3);
+    leds_mode[led] = mode;
     eeprom_write_byte(&leds_mode_ee[led], mode);
 }
 
@@ -301,6 +294,7 @@ void menu_time(uint8_t led) {
         time = leds_time[menu_led()];
     }
     
+    leds_time[led] = time;
     eeprom_write_word(&leds_time_ee[led], time);
 }
 
@@ -323,7 +317,7 @@ void update_led(uint8_t led) {
             } else if (timer[led] < 2*leds_time[led]) {
                 update_brightness(led);
             } else {
-                timer[led] = 0;
+                timer[led] -= 2*leds_time[led];
             }
             break;
         case 2:
@@ -332,7 +326,7 @@ void update_led(uint8_t led) {
             } else if (timer[led] < 2*leds_time[led]) {
                 set_brightness(led, 0);
             } else {
-                timer[led] = 0;
+                timer[led] -= 2*leds_time[led];
             }
             break;
     }
