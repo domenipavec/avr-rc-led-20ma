@@ -61,6 +61,8 @@ volatile uint8_t signal_divider[3];
 volatile uint16_t signal_start[3];
 volatile uint8_t signal_value[3];
 
+bool signal_calibrated = false;
+
 volatile uint16_t timer[7];
 
 void set_brightness(uint8_t led, uint8_t b) {
@@ -136,26 +138,50 @@ ISR(PCINT1_vect) {
     static uint8_t last = 0;
     uint8_t curr = PINB & 0b0111;
     uint8_t diff = last ^ (curr);
+    uint16_t t = TCNT1;
     
     for (uint8_t i = 0; i < 3; i++) {
         if (BITSET(diff, i)) {
             if (BITSET(curr, i)) {
-                signal_start[i] = TCNT1;
+                signal_start[i] = t;
             } else {
-                uint16_t signal = TCNT1 - signal_start[i];
-                if (signal < 100) {
-                    continue;
+                uint16_t signal = t - signal_start[i];
+                if (t < signal_start[i]) {
+                    signal -= 15536;
                 }
+                if (BITCLEAR(PINA, PA7)) {
+                    if (!signal_calibrated) {
+                        for (uint8_t j = 0; j < 3; j++) {
+                            signal_min[j] = 9983;
+                            signal_max[j] = 10239;
+                            signal_divider[j] = 1;
+                        }
+                        eeprom_write_block((void*)signal_min, (void*)signal_min_ee, 6);
+                        eeprom_write_block((void*)signal_max, (void*)signal_max_ee, 6);
+                        signal_calibrated = true;
+                    }
+                    if (signal < signal_min[i]) {
+                        while (signal < signal_min[i]) {
+                            signal_min[i] -= 8;
+                        }
+                        eeprom_write_word(&signal_min_ee[i], signal_min[i]);
+                        update_divider(i);
+                    } else if (signal > signal_max[i]) {
+                        while (signal > signal_max[i]) {
+                            signal_max[i] += 8;
+                        }
+                        eeprom_write_word(&signal_max_ee[i], signal_max[i]);
+                        update_divider(i);
+                    }
+                }
+                uint16_t value = (signal - signal_min[i])/signal_divider[i];
                 if (signal < signal_min[i]) {
-                    signal_min[i] = signal;
-                    eeprom_write_word(&signal_min_ee[i], signal);
-                    update_divider(i);
-                } else if (signal > signal_max[i]) {
-                    signal_max[i] = signal;
-                    eeprom_write_word(&signal_max_ee[i], signal);
-                    update_divider(i);
+                    value = 0;
                 }
-                signal_value[i] = (signal - signal_min[i])/signal_divider[i];
+                if (value > 255) {
+                    value = 255;
+                }
+                signal_value[i] = value;
             }
         }
     }
@@ -175,7 +201,7 @@ uint8_t menu_led() {
         set_brightness(led, 0);
         
         
-        while (timer[0] < 230) {
+        while (timer[0] < 160) {
             if (BITCLEAR(PINA, PA7)) {
                 while(BITCLEAR(PINA, PA7));
                 _delay_ms(10);
@@ -201,7 +227,7 @@ uint8_t menu_N(uint8_t led, uint8_t max) {
             set_brightness(led, 0);
         }
         
-        while (timer[0] < 250) {
+        while (timer[0] < 180) {
             if (BITCLEAR(PINA, PA7)) {
                 while(BITCLEAR(PINA, PA7));
                 _delay_ms(10);
@@ -351,14 +377,6 @@ int main() {
     if (BITCLEAR(PINA, PA7)) {
         while(BITCLEAR(PINA, PA7));
         
-        for (uint8_t i = 0; i < 3; i++) {
-            signal_min[i] = 2000;
-            signal_max[i] = 2256;
-            signal_divider[i] = 1;
-        }
-        eeprom_write_block((void*)signal_min_ee, (void*)signal_min, 6);
-        eeprom_write_block((void*)signal_max_ee, (void*)signal_max, 6);
-        
         for (;;) {
             uint8_t led = menu_led();
             
@@ -384,7 +402,7 @@ int main() {
     // init pc interrupts 8,9,10
     GIMSK = 0b00100000;
     PCMSK1 = 0b00000111;
-
+    
     // reset all timers
     for (uint8_t i = 0; i < 7; i++) {
         timer[i] = 0;
