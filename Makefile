@@ -82,10 +82,10 @@ PROJECTNAME=avr
 
 # Avrdude arguments for setting fuses
 # (I use http://www.engbedded.com/cgi-bin/fcx.cgi)
-FUSE_SETTINGS=-U lfuse:w:0x62:m -U hfuse:w:0xdf:m -U efuse:w:0xff:m
+FUSE_SETTINGS=-U lfuse:w:0xe2:m -U hfuse:w:0xdf:m -U efuse:w:0xff:m
 
 # MCU clock speed
-F_CPU = 1000000UL
+F_CPU = 8000000UL
 
 # Source files
 # List C/C++/Assembly source files:
@@ -102,7 +102,7 @@ LIBS=
 
 # Optimization level, 
 # use s (size opt), 1, 2, 3 or 0 (off)
-OPTLEVEL=3
+OPTLEVEL=0
 
 
 #####      AVR Dude 'writeflash' options       #####
