@@ -92,7 +92,7 @@ F_CPU = 8000000UL
 # (list all files to compile, e.g. 'a.c b.cpp as.S'):
 # Use .cc, .cpp or .C suffix for C++ files, use .S 
 # (NOT .s !!!) for assembly source code files.
-PRJSRC=main.cpp avr-cpp-lib/exponential.cpp
+PRJSRC=main.cpp avr-cpp-lib/exponential.cpp settings.cpp
 
 # additional includes (e.g. -I/path/to/mydir)
 INC=-I./avr-cpp-lib
@@ -143,7 +143,7 @@ AVRDUDE_PORT=avrdoper
 # HEXFORMAT -- format for .hex file output
 HEXFORMAT=ihex
 # compiler
-CFLAGS=-I. $(INC) -g -mmcu=$(MCU) -O$(OPTLEVEL) \
+CFLAGS=-I. $(INC) -g -mmcu=$(MCU) \
 	-fpack-struct -fshort-enums             \
 	-funsigned-bitfields -funsigned-char    \
 	-Wall               \
@@ -266,16 +266,19 @@ $(TRG): $(OBJDEPS)
 	$(CC) -S $(CFLAGS) $(CPPFLAGS) $< -o $@
 
 
-
 #### Generating object files ####
 # object from C
 .c.o: 
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
+# custom settings
+settings.o: settings.cpp
+	$(CC) $(CFLAGS) -Os $(CPPFLAGS) -c $< -o $@
+	
 # object from C++ (.cc, .cpp, .C files)
 .cc.o .cpp.o .C.o :
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -O$(OPTLEVEL) $(CPPFLAGS) -c $< -o $@
 
 # object from asm
 .S.o :
